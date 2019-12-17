@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.dynamic = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.dynamic = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 /*
  * Dynamic - Declarative DOM behaviour
  * Copyright (c) Dan Phillimore (asmblah)
@@ -148,6 +148,11 @@ function evaluate ( node, context ) {
       return node.value;
 
     case 'LogicalExpression':
+      if (node.operator === '||') {
+        return evaluate( node.left, context ) || evaluate( node.right, context );
+      } else if (node.operator === '&&') { 
+        return evaluate( node.left, context ) && evaluate( node.right, context );
+      }
       return binops[ node.operator ]( evaluate( node.left, context ), evaluate( node.right, context ) );
 
     case 'MemberExpression':
@@ -176,7 +181,7 @@ module.exports = {
 };
 
 },{"jsep":3}],3:[function(require,module,exports){
-//     JavaScript Expression Parser (JSEP) 0.3.0
+//     JavaScript Expression Parser (JSEP) 0.3.4
 //     JSEP may be freely distributed under the MIT License
 //     http://jsep.from.so/
 
@@ -185,7 +190,7 @@ module.exports = {
 	'use strict';
 	// Node Types
 	// ----------
-	
+
 	// This is the full set of types that any JSEP node can be.
 	// Store them here to save space when minified
 	var COMPOUND = 'Compound',
@@ -221,7 +226,7 @@ module.exports = {
 
 	// Operations
 	// ----------
-	
+
 	// Set `t` to `true` to save space (when minified, not gzipped)
 		t = true,
 	// Use a quickly-accessible map to store all of the unary operators
@@ -233,7 +238,7 @@ module.exports = {
 		binary_ops = {
 			'||': 1, '&&': 2, '|': 3,  '^': 4,  '&': 5,
 			'==': 6, '!=': 6, '===': 6, '!==': 6,
-			'<': 7,  '>': 7,  '<=': 7,  '>=': 7, 
+			'<': 7,  '>': 7,  '<=': 7,  '>=': 7,
 			'<<':8,  '>>': 8, '>>>': 8,
 			'+': 9, '-': 9,
 			'*': 10, '/': 10, '%': 10
@@ -282,13 +287,15 @@ module.exports = {
 		isIdentifierStart = function(ch) {
 			return (ch === 36) || (ch === 95) || // `$` and `_`
 					(ch >= 65 && ch <= 90) || // A...Z
-					(ch >= 97 && ch <= 122); // a...z
+					(ch >= 97 && ch <= 122) || // a...z
+                    (ch >= 128 && !binary_ops[String.fromCharCode(ch)]); // any non-ASCII that is not an operator
 		},
 		isIdentifierPart = function(ch) {
 			return (ch === 36) || (ch === 95) || // `$` and `_`
 					(ch >= 65 && ch <= 90) || // A...Z
 					(ch >= 97 && ch <= 122) || // a...z
-					(ch >= 48 && ch <= 57); // 0...9
+					(ch >= 48 && ch <= 57) || // 0...9
+                    (ch >= 128 && !binary_ops[String.fromCharCode(ch)]); // any non-ASCII that is not an operator
 		},
 
 		// Parsing
@@ -308,11 +315,11 @@ module.exports = {
 				gobbleSpaces = function() {
 					var ch = exprICode(index);
 					// space or tab
-					while(ch === 32 || ch === 9) {
+					while(ch === 32 || ch === 9 || ch === 10 || ch === 13) {
 						ch = exprICode(++index);
 					}
 				},
-				
+
 				// The main parsing function. Much of this code is dedicated to ternary expressions
 				gobbleExpression = function() {
 					var test = gobbleBinaryExpression(),
@@ -354,7 +361,13 @@ module.exports = {
 					gobbleSpaces();
 					var biop, to_check = expr.substr(index, max_binop_len), tc_len = to_check.length;
 					while(tc_len > 0) {
-						if(binary_ops.hasOwnProperty(to_check)) {
+						// Don't accept a binary op when it is an identifier.
+						// Binary ops that start with a identifier-valid character must be followed
+						// by a non identifier-part valid character
+						if(binary_ops.hasOwnProperty(to_check) && (
+							!isIdentifierStart(exprICode(index)) ||
+							(index+to_check.length< expr.length && !isIdentifierPart(exprICode(index+to_check.length)))
+						)) {
 							index += tc_len;
 							return to_check;
 						}
@@ -416,7 +429,7 @@ module.exports = {
 					i = stack.length - 1;
 					node = stack[i];
 					while(i > 1) {
-						node = createBinaryExpression(stack[i - 1].value, stack[i - 2], node); 
+						node = createBinaryExpression(stack[i - 1].value, stack[i - 2], node);
 						i -= 2;
 					}
 					return node;
@@ -426,7 +439,7 @@ module.exports = {
 				// e.g. `foo.bar(baz)`, `1`, `"abc"`, `(a % 2)` (because it's in parenthesis)
 				gobbleToken = function() {
 					var ch, to_check, tc_len;
-					
+
 					gobbleSpaces();
 					ch = exprICode(index);
 
@@ -436,16 +449,19 @@ module.exports = {
 					} else if(ch === SQUOTE_CODE || ch === DQUOTE_CODE) {
 						// Single or double quotes
 						return gobbleStringLiteral();
-					} else if(isIdentifierStart(ch) || ch === OPAREN_CODE) { // open parenthesis
-						// `foo`, `bar.baz`
-						return gobbleVariable();
 					} else if (ch === OBRACK_CODE) {
 						return gobbleArray();
 					} else {
 						to_check = expr.substr(index, max_unop_len);
 						tc_len = to_check.length;
 						while(tc_len > 0) {
-							if(unary_ops.hasOwnProperty(to_check)) {
+						// Don't accept an unary op when it is an identifier.
+						// Unary ops that start with a identifier-valid character must be followed
+						// by a non identifier-part valid character
+							if(unary_ops.hasOwnProperty(to_check) && (
+								!isIdentifierStart(exprICode(index)) ||
+								(index+to_check.length < expr.length && !isIdentifierPart(exprICode(index+to_check.length)))
+							)) {
 								index += tc_len;
 								return {
 									type: UNARY_EXP,
@@ -456,9 +472,14 @@ module.exports = {
 							}
 							to_check = to_check.substr(0, --tc_len);
 						}
-						
-						return false;
+
+						if (isIdentifierStart(ch) || ch === OPAREN_CODE) { // open parenthesis
+							// `foo`, `bar.baz`
+							return gobbleVariable();
+						}
 					}
+
+					return false;
 				},
 				// Parse simple numeric literals: `12`, `3.4`, `.5`. Do this by using a string to
 				// keep track of everything in the numeric literal and then calling `parseFloat` on that string
@@ -475,7 +496,7 @@ module.exports = {
 							number += exprI(index++);
 						}
 					}
-					
+
 					ch = exprI(index);
 					if(ch === 'e' || ch === 'E') { // exponent marker
 						number += exprI(index++);
@@ -490,7 +511,7 @@ module.exports = {
 							throwError('Expected exponent (' + number + exprI(index) + ')', index);
 						}
 					}
-					
+
 
 					chCode = exprICode(index);
 					// Check to make sure this isn't a variable name that start with a number (123abc)
@@ -528,6 +549,7 @@ module.exports = {
 								case 'b': str += '\b'; break;
 								case 'f': str += '\f'; break;
 								case 'v': str += '\x0B'; break;
+								default : str += ch;
 							}
 						} else {
 							str += ch;
@@ -544,7 +566,7 @@ module.exports = {
 						raw: quote + str + quote
 					};
 				},
-				
+
 				// Gobbles only identifiers
 				// e.g.: `foo`, `_value`, `$x1`
 				// Also, this function checks if that identifier is a literal:
@@ -590,11 +612,12 @@ module.exports = {
 				// until the terminator character `)` or `]` is encountered.
 				// e.g. `foo(bar, baz)`, `my_func()`, or `[bar, baz]`
 				gobbleArguments = function(termination) {
-					var ch_i, args = [], node;
+					var ch_i, args = [], node, closed = false;
 					while(index < length) {
 						gobbleSpaces();
 						ch_i = exprICode(index);
 						if(ch_i === termination) { // done parsing
+							closed = true;
 							index++;
 							break;
 						} else if (ch_i === COMMA_CODE) { // between expressions
@@ -607,6 +630,9 @@ module.exports = {
 							args.push(node);
 						}
 					}
+					if (!closed) {
+						throwError('Expected ' + String.fromCharCode(termination), index);
+					}
 					return args;
 				},
 
@@ -617,7 +643,7 @@ module.exports = {
 				gobbleVariable = function() {
 					var ch_i, node;
 					ch_i = exprICode(index);
-						
+
 					if(ch_i === OPAREN_CODE) {
 						node = gobbleGroup();
 					} else {
@@ -691,7 +717,7 @@ module.exports = {
 				},
 
 				nodes = [], ch_i, node;
-				
+
 			while(index < length) {
 				ch_i = exprICode(index);
 
@@ -723,7 +749,7 @@ module.exports = {
 		};
 
 	// To be filled in by the template
-	jsep.version = '0.3.0';
+	jsep.version = '0.3.4';
 	jsep.toString = function() { return 'JavaScript Expression Parser (JSEP) v' + jsep.version; };
 
 	/**
@@ -732,6 +758,7 @@ module.exports = {
 	 * @return jsep
 	 */
 	jsep.addUnaryOp = function(op_name) {
+		max_unop_len = Math.max(op_name.length, max_unop_len);
 		unary_ops[op_name] = t; return this;
 	};
 
@@ -744,6 +771,17 @@ module.exports = {
 	jsep.addBinaryOp = function(op_name, precedence) {
 		max_binop_len = Math.max(op_name.length, max_binop_len);
 		binary_ops[op_name] = precedence;
+		return this;
+	};
+
+	/**
+	 * @method jsep.addLiteral
+	 * @param {string} literal_name The name of the literal to add
+	 * @param {*} literal_value The value of the literal
+	 * @return jsep
+	 */
+	jsep.addLiteral = function(literal_name, literal_value) {
+		literals[literal_name] = literal_value;
 		return this;
 	};
 
@@ -761,6 +799,17 @@ module.exports = {
 	};
 
 	/**
+	 * @method jsep.removeAllUnaryOps
+	 * @return jsep
+	 */
+	jsep.removeAllUnaryOps = function() {
+		unary_ops = {};
+		max_unop_len = 0;
+
+		return this;
+	};
+
+	/**
 	 * @method jsep.removeBinaryOp
 	 * @param {string} op_name The name of the binary op to remove
 	 * @return jsep
@@ -770,6 +819,37 @@ module.exports = {
 		if(op_name.length === max_binop_len) {
 			max_binop_len = getMaxKeyLen(binary_ops);
 		}
+		return this;
+	};
+
+	/**
+	 * @method jsep.removeAllBinaryOps
+	 * @return jsep
+	 */
+	jsep.removeAllBinaryOps = function() {
+		binary_ops = {};
+		max_binop_len = 0;
+
+		return this;
+	};
+
+	/**
+	 * @method jsep.removeLiteral
+	 * @param {string} literal_name The name of the literal to remove
+	 * @return jsep
+	 */
+	jsep.removeLiteral = function(literal_name) {
+		delete literals[literal_name];
+		return this;
+	};
+
+	/**
+	 * @method jsep.removeAllLiterals
+	 * @return jsep
+	 */
+	jsep.removeAllLiterals = function() {
+		literals = {};
+
 		return this;
 	};
 
@@ -1200,7 +1280,7 @@ _.extend(Dynamic.prototype, {
 
         dynamic.$context.find('script[type="text/x-dyn-json"]').each(function () {
             var json = $(this).html(),
-                config = $.parseJSON(json);
+                config = JSON.parse(json);
 
             _.forOwn(config, function (elementConfig, selector) {
                 function handleConfig(elementConfig) {
