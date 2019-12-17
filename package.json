@@ -23,8 +23,8 @@
     "install:jquery": "cp node_modules/jquery/dist/jquery.js dist/jquery.js"
   },
   "dependencies": {
-    "dynamic": "^4.2.1",
-    "jquery": "~1"
+    "dynamic": "^4.2.2",
+    "jquery": "^3.4.1"
   },
   "engines": {
     "node": ">=0.6"
