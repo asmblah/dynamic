@@ -1200,7 +1200,7 @@ _.extend(Dynamic.prototype, {
 
         dynamic.$context.find('script[type="text/x-dyn-json"]').each(function () {
             var json = $(this).html(),
-                config = $.parseJSON(json);
+                config = JSON.parse(json);
 
             _.forOwn(config, function (elementConfig, selector) {
                 function handleConfig(elementConfig) {

@@ -9,7 +9,7 @@
                 margin: 2em;
             }
 
-            heading {
+            h2 {
                 display: block;
                 font-weight: bold;
             }
@@ -26,14 +26,13 @@
         <script>
             // Shim HTML5 elements in old IE
             document.createElement('section');
-            document.createElement('heading');
         </script>
     </head>
     <body>
         <h1>Dynamic.js demo</h1>
 
         <section>
-            <heading>I toggle the message's display via a data attribute</heading>
+            <h2>I toggle the message's display via a data attribute</h2>
             <label>
                 On
                 <input type="radio" name="toggle_radio_data" value="on" data-dyn-toggle-on="change" data-dyn-toggle="#toggle_message_data" checked>
@@ -47,7 +46,7 @@
         </section>
 
         <section>
-            <heading>I toggle the message's display via a data attribute and a selector function</heading>
+            <h2>I toggle the message's display via a data attribute and a selector function</h2>
             <label>
                 On
                 <input type="radio" name="toggle_radio_data_with_fn" value="on" data-dyn-toggle-on="change" data-dyn-toggle="@closest(section) > #toggle_message_data_with_fn" checked>
@@ -61,7 +60,7 @@
         </section>
 
         <section>
-            <heading>I toggle the messages' displays via a data attribute with expression</heading>
+            <h2>I toggle the messages' displays via a data attribute with expression</h2>
             <p>
                 <label>
                     First
@@ -87,7 +86,7 @@
         </section>
 
         <section>
-            <heading>I toggle the message's display via a JSON config</heading>
+            <h2>I toggle the message's display via a JSON config</h2>
             <div>
                 <label>
                     On
